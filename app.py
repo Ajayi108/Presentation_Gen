@@ -91,11 +91,13 @@ def load_dotenv(path: str = ".env") -> dict[str, str]:
 
 
 def get_api_key() -> str | None:
+    # Support either common Gemini environment variable name.
     load_dotenv()
     return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 
 def get_unsplash_key() -> str | None:
+    # Unsplash uses a separate access key from the Gemini integration.
     load_dotenv()
     return os.getenv("UNSPLASH_ACCESS_KEY")
 
@@ -191,6 +193,7 @@ def with_referral(url: str | None) -> str:
 
 
 def fetch_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
+    # Reuse one small helper for the Unsplash GET endpoints.
     request = urllib.request.Request(url, headers=headers, method="GET")
     with urllib.request.urlopen(request, timeout=60) as response:
         return json.loads(response.read().decode("utf-8"))
@@ -290,6 +293,7 @@ def normalize_deck(data: dict[str, Any], topic: str, slide_count: int) -> dict[s
 
 
 def enrich_deck_with_unsplash(deck: dict[str, Any], topic: str, access_key: str | None) -> dict[str, Any]:
+    # Attach image metadata per slide so preview and export can use the same data.
     if not access_key:
         return deck
 
@@ -353,6 +357,7 @@ def build_presentation(deck: dict[str, Any], unsplash_key: str | None) -> bytes:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         apply_background(slide, secondary)
 
+        # This custom layout leaves room for bullets on the left and an image on the right.
         title_box = slide.shapes.add_textbox(Inches(0.6), Inches(0.45), Inches(12.0), Inches(0.65))
         title_paragraph = title_box.text_frame.paragraphs[0]
         title_paragraph.text = slide_data["title"]
@@ -374,6 +379,7 @@ def build_presentation(deck: dict[str, Any], unsplash_key: str | None) -> bytes:
 
         image = slide_data.get("image")
         if image and image.get("image_url"):
+            # Unsplash returns hosted image URLs, so we fetch the image bytes at export time.
             image_bytes = fetch_image_bytes(image["image_url"])
             if image_bytes:
                 slide.shapes.add_picture(io.BytesIO(image_bytes), Inches(6.6), Inches(1.35), width=Inches(5.9), height=Inches(3.8))
@@ -614,6 +620,7 @@ if "last_error" not in st.session_state:
     st.session_state.last_error = None
 
 if generate:
+    # Reset previous results so each run reflects only the latest request.
     st.session_state.last_error = None
     st.session_state.deck = None
     st.session_state.pptx_bytes = None
