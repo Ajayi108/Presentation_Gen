@@ -20,12 +20,14 @@ except ImportError:  # pragma: no cover - handled in UI
     Inches = None
     Pt = None
 
+# App-level constants for API endpoints, export paths, and default behavior.
 APP_NAME = "ai_presentation_generator"
 DEFAULT_MODEL = "gemini-2.5-flash"
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 UNSPLASH_RANDOM_URL = "https://api.unsplash.com/photos/random"
 OUTPUT_DIR = Path("generated_presentations")
 
+# Theme presets drive both the Streamlit styling and the exported PowerPoint colors.
 THEME_PRESETS = {
     "Editorial Sand": {
         "primary": "#2F4858",
@@ -137,12 +139,14 @@ THEME_PRESETS = {
     },
 }
 
+# These options control where images sit on content slides in the exported deck.
 IMAGE_LAYOUT_OPTIONS = {
     "Right aligned throughout": "right",
     "Left aligned throughout": "left",
     "Alternating left and right": "alternate",
 }
 
+# Gemini is asked to return this JSON structure so the app can export safely.
 PRESENTATION_SCHEMA = {
     "type": "OBJECT",
     "properties": {
@@ -165,10 +169,12 @@ PRESENTATION_SCHEMA = {
     "required": ["title", "subtitle", "slides", "closing_message"],
 }
 
+# Configure the Streamlit page before rendering any UI.
 st.set_page_config(page_title="DeckMuse", page_icon=":material/slideshow:", layout="wide")
 
 @st.cache_data(show_spinner=False)
 def load_dotenv(path: str = ".env") -> dict[str, str]:
+    # Read simple KEY=value pairs once and reuse them across reruns.
     env_path = Path(path)
     loaded: dict[str, str] = {}
     if not env_path.exists():
@@ -185,10 +191,12 @@ def load_dotenv(path: str = ".env") -> dict[str, str]:
     return loaded
 
 def get_api_key() -> str | None:
+    # Gemini may be stored under either of these environment variable names.
     load_dotenv()
     return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 def get_unsplash_key() -> str | None:
+    # Unsplash uses its own access key because it is a separate integration.
     load_dotenv()
     return os.getenv("UNSPLASH_ACCESS_KEY")
 
@@ -227,6 +235,7 @@ Instructions:
 """.strip()
 
 def call_gemini(prompt: str, api_key: str, model: str) -> dict[str, Any]:
+    # Send the prompt to Gemini and expect structured JSON back.
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -235,6 +244,7 @@ def call_gemini(prompt: str, api_key: str, model: str) -> dict[str, Any]:
             "responseSchema": PRESENTATION_SCHEMA,
         },
     }
+    # Build a direct HTTP request so the app works without extra client libraries.
     request = urllib.request.Request(
         API_URL.format(model=model),
         data=json.dumps(payload).encode("utf-8"),
@@ -263,17 +273,20 @@ def call_gemini(prompt: str, api_key: str, model: str) -> dict[str, Any]:
         return json.loads(match.group(0))
 
 def with_referral(url: str | None) -> str:
+    # Unsplash asks apps to preserve referral parameters in attribution links.
     if not url:
         return ""
     separator = "&" if "?" in url else "?"
     return f"{url}{separator}utm_source={APP_NAME}&utm_medium=referral"
 
 def fetch_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
+    # Small helper for GET-based API calls such as the Unsplash endpoints.
     request = urllib.request.Request(url, headers=headers, method="GET")
     with urllib.request.urlopen(request, timeout=60) as response:
         return json.loads(response.read().decode("utf-8"))
 
 def fetch_unsplash_photo(query: str, access_key: str) -> dict[str, str] | None:
+    # Pull one landscape image candidate that matches the topic or slide title.
     params = urllib.parse.urlencode({"query": query, "orientation": "landscape", "content_filter": "high"})
     headers = {"Authorization": f"Client-ID {access_key}", "Accept-Version": "v1"}
     try:
@@ -296,6 +309,7 @@ def fetch_unsplash_photo(query: str, access_key: str) -> dict[str, str] | None:
     }
 
 def trigger_unsplash_download(download_location: str, access_key: str) -> None:
+    # This pings Unsplash's tracking URL for API usage compliance.
     if not download_location:
         return
     headers = {"Authorization": f"Client-ID {access_key}", "Accept-Version": "v1"}
@@ -305,12 +319,14 @@ def trigger_unsplash_download(download_location: str, access_key: str) -> None:
         return
 
 def fetch_image_bytes(url: str) -> bytes:
+    # Download an image so python-pptx can embed it directly into the file.
     if not url:
         return b""
     request = urllib.request.Request(url, headers={"User-Agent": APP_NAME}, method="GET")
     with urllib.request.urlopen(request, timeout=60) as response:
         return response.read()
 def normalize_deck(data: dict[str, Any], topic: str, slide_count: int, theme_name: str, project_brief: list[str]) -> dict[str, Any]:
+    # Clean Gemini output and guarantee that the exporter receives a complete deck.
     slides: list[dict[str, Any]] = []
     for item in data.get("slides", []):
         bullets = [str(bullet).strip() for bullet in item.get("bullets", []) if str(bullet).strip()]
@@ -322,6 +338,7 @@ def normalize_deck(data: dict[str, Any], topic: str, slide_count: int, theme_nam
             "speaker_notes": str(item.get("speaker_notes") or "").strip(),
             "image": None,
         })
+    # Backfill missing slides so the export count always matches the user's request.
     while len(slides) < slide_count:
         fallback_bullets = [
             f"Expand on an important angle of {topic}",
@@ -347,6 +364,7 @@ def normalize_deck(data: dict[str, Any], topic: str, slide_count: int, theme_nam
     }
 
 def enrich_deck_with_unsplash(deck: dict[str, Any], topic: str, access_key: str | None, include_title_image: bool = False) -> dict[str, Any]:
+    # Add image metadata after the deck exists so preview and export share one data model.
     # Attach one image candidate per slide so preview and export stay in sync.
     if not access_key:
         return deck
@@ -364,15 +382,18 @@ def enrich_deck_with_unsplash(deck: dict[str, Any], topic: str, access_key: str 
     return deck
 
 def hex_to_rgb(value: str) -> RGBColor:
+    # Convert CSS-style hex values into the RGB objects expected by python-pptx.
     cleaned = value.lstrip("#")
     return RGBColor(int(cleaned[0:2], 16), int(cleaned[2:4], 16), int(cleaned[4:6], 16))
 
 def apply_background(slide, color: str) -> None:
+    # Apply a solid background fill to a slide.
     fill = slide.background.fill
     fill.solid()
     fill.fore_color.rgb = hex_to_rgb(color)
 
 def add_footer_text(slide, text: str, color: str) -> None:
+    # Reuse a tiny footer for photo credits or subtle deck metadata.
     textbox = slide.shapes.add_textbox(Inches(0.6), Inches(7.0), Inches(12.0), Inches(0.25))
     paragraph = textbox.text_frame.paragraphs[0]
     paragraph.text = text
@@ -380,6 +401,7 @@ def add_footer_text(slide, text: str, color: str) -> None:
     paragraph.font.color.rgb = hex_to_rgb(color)
 
 def get_image_geometry(layout_mode: str, slide_index: int) -> dict[str, float | str]:
+    # Resolve whether a given slide image should appear left, right, or alternate.
     # Resolve whether the image sits left, right, or alternates across the deck.
     if layout_mode == "alternate":
         image_side = "left" if slide_index % 2 == 0 else "right"
@@ -390,6 +412,7 @@ def get_image_geometry(layout_mode: str, slide_index: int) -> dict[str, float | 
     return {"image_left": 6.7, "text_left": 0.7, "image_side": image_side}
 
 def build_presentation(deck: dict[str, Any], unsplash_key: str | None, theme: dict[str, str], layout_mode: str, presenter_name: str = "") -> bytes:
+    # Create the final PowerPoint deck entirely in memory before saving or downloading it.
     # Export the final .pptx using the selected theme preset and image-placement mode.
     if Presentation is None:
         raise RuntimeError("python-pptx is not installed. Install dependencies from requirements.txt first.")
@@ -399,6 +422,7 @@ def build_presentation(deck: dict[str, Any], unsplash_key: str | None, theme: di
     primary = theme["primary"]
     secondary = theme["secondary"]
     accent = theme["accent"]
+    # The title slide uses a blank layout so we can control every text position ourselves.
     title_slide = prs.slides.add_slide(prs.slide_layouts[6])
     apply_background(title_slide, primary)
 
@@ -435,6 +459,7 @@ def build_presentation(deck: dict[str, Any], unsplash_key: str | None, theme: di
         presenter_paragraph.font.bold = True
         presenter_paragraph.font.color.rgb = hex_to_rgb("#FFFFFF")
         presenter_paragraph.alignment = 1
+    # Build each content slide using the selected image-placement strategy.
     for index, slide_data in enumerate(deck["slides"]):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         apply_background(slide, secondary)
@@ -494,18 +519,22 @@ def build_presentation(deck: dict[str, Any], unsplash_key: str | None, theme: di
     return output.getvalue()
 
 def make_file_stem(topic: str) -> str:
+    # Turn the topic into a filename-safe slug for the exported PowerPoint.
     safe_topic = re.sub(r"[^A-Za-z0-9_-]+", "-", topic.strip().lower()).strip("-")
     return safe_topic or "presentation"
 
 def save_presentation_file(pptx_bytes: bytes, topic: str) -> Path:
+    # Persist a copy of the generated deck inside the project workspace.
     OUTPUT_DIR.mkdir(exist_ok=True)
     file_path = OUTPUT_DIR / f"{make_file_stem(topic)}.pptx"
     file_path.write_bytes(pptx_bytes)
     return file_path
 
+# Pull API keys once before building the UI.
 api_key = get_api_key()
 unsplash_key = get_unsplash_key()
 
+# The sidebar collects all user-controlled presentation settings.
 with st.sidebar:
     st.markdown("### Presentation Builder")
     topic = st.text_input("Topic", placeholder="e.g. AI in healthcare")
@@ -524,9 +553,11 @@ with st.sidebar:
     )
     generate = st.button("Generate presentation", use_container_width=True)
 
+# These derived values are reused by both the UI styling and the exporter.
 selected_theme = THEME_PRESETS[theme_name]
 layout_mode = IMAGE_LAYOUT_OPTIONS[image_layout_label]
 project_brief = parse_project_brief(project_brief_text)
+# Inject CSS so the Streamlit app feels more like a product landing page.
 st.markdown(
     f"""
     <style>
@@ -587,10 +618,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Initialize session state so results survive Streamlit reruns after button clicks.
 for key in ["deck", "pptx_bytes", "pptx_path", "last_error"]:
     if key not in st.session_state:
         st.session_state[key] = None
 
+# Status pills give immediate feedback about which integrations are ready.
 status_class = "status-good" if api_key else "status-warn"
 status_text = "Gemini ready" if api_key else "Add GEMINI_API_KEY or GOOGLE_API_KEY"
 image_status_class = "status-good" if unsplash_key else "status-warn"
@@ -628,6 +661,7 @@ st.markdown(
 )
 
 if generate:
+    # Clear previous output and rebuild the deck from the latest form state.
     # Clear previous output so each run shows only the latest presentation.
     st.session_state.last_error = None
     st.session_state.deck = None
@@ -641,6 +675,7 @@ if generate:
         st.session_state.last_error = "Unsplash images are enabled, but UNSPLASH_ACCESS_KEY is missing from .env."
     else:
         prompt = build_prompt(topic.strip(), audience.strip() or "General audience", tone, slide_count, theme_name, project_brief)
+        # Run generation, enrichment, and export inside a single progress state.
         with st.spinner("Generating presentation..."):
             try:
                 raw_deck = call_gemini(prompt, api_key, model)
@@ -669,8 +704,10 @@ if generate:
 if st.session_state.last_error:
     st.error(st.session_state.last_error)
 
+# Split the main area into a preview column and a controls/output column.
 left_col, right_col = st.columns([1.35, 0.85], gap="large")
 with left_col:
+    # The left side focuses on deck preview and generated content.
     st.markdown(
         f"""
         <div class="card">
@@ -736,6 +773,7 @@ with left_col:
         )
 
 with right_col:
+    # The right side highlights theme details and the downloadable file.
     st.markdown(
         f"""
         <div class="card">
