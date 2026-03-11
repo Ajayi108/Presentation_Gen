@@ -63,6 +63,78 @@ THEME_PRESETS = {
         "muted": "#5E6D66",
         "description": "Soft and restrained for education, sustainability, and nonprofit decks.",
     },
+    "Coral Studio": {
+        "primary": "#7A2E2E",
+        "secondary": "#FFF1EC",
+        "accent": "#FF7A59",
+        "surface": "#FFF8F5",
+        "ink": "#2F1D1D",
+        "muted": "#7D5B58",
+        "description": "Energetic and warm for marketing launches and creative decks.",
+    },
+    "Ocean Signal": {
+        "primary": "#10324A",
+        "secondary": "#EAF5FB",
+        "accent": "#2FA7D8",
+        "surface": "#F6FBFE",
+        "ink": "#14232C",
+        "muted": "#5E7482",
+        "description": "Clear and technical for analytics, research, and product strategy.",
+    },
+    "Lavender Grid": {
+        "primary": "#443C68",
+        "secondary": "#F2F0FB",
+        "accent": "#8B7CF6",
+        "surface": "#FAF9FE",
+        "ink": "#201D2F",
+        "muted": "#66627A",
+        "description": "Contemporary and elegant for design-forward storytelling.",
+    },
+    "Amber Slate": {
+        "primary": "#393939",
+        "secondary": "#F7F3EA",
+        "accent": "#D9A441",
+        "surface": "#FCFAF4",
+        "ink": "#222120",
+        "muted": "#676057",
+        "description": "Balanced and mature for operations, finance, and advisory decks.",
+    },
+    "Rose Quartz": {
+        "primary": "#6A3E52",
+        "secondary": "#FAEEF3",
+        "accent": "#E47BAA",
+        "surface": "#FFF8FB",
+        "ink": "#2B1F25",
+        "muted": "#7B6670",
+        "description": "Soft premium styling for fashion, wellness, and lifestyle presentations.",
+    },
+    "Forest Signal": {
+        "primary": "#18392B",
+        "secondary": "#EDF6F1",
+        "accent": "#2E8B57",
+        "surface": "#F7FCF9",
+        "ink": "#16211C",
+        "muted": "#5B6E63",
+        "description": "Grounded and credible for climate, impact, and sustainability work.",
+    },
+    "Cobalt Pulse": {
+        "primary": "#203A8F",
+        "secondary": "#EEF2FF",
+        "accent": "#4F7CFF",
+        "surface": "#F8FAFF",
+        "ink": "#182032",
+        "muted": "#66718C",
+        "description": "Sharp and energetic for software, AI, and technical demos.",
+    },
+    "Terracotta Paper": {
+        "primary": "#6B3F2C",
+        "secondary": "#F8EFE9",
+        "accent": "#C86B42",
+        "surface": "#FFF9F6",
+        "ink": "#2C221F",
+        "muted": "#76615A",
+        "description": "Textured editorial warmth for brand, narrative, and story-led decks.",
+    },
 }
 
 IMAGE_LAYOUT_OPTIONS = {
@@ -271,12 +343,18 @@ def normalize_deck(data: dict[str, Any], topic: str, slide_count: int, theme_nam
         "slides": slides[:slide_count],
         "closing_message": str(data.get("closing_message") or "Questions and discussion").strip(),
         "project_brief": project_brief,
+        "title_image": None,
     }
 
-def enrich_deck_with_unsplash(deck: dict[str, Any], topic: str, access_key: str | None) -> dict[str, Any]:
+def enrich_deck_with_unsplash(deck: dict[str, Any], topic: str, access_key: str | None, include_title_image: bool = False) -> dict[str, Any]:
     # Attach one image candidate per slide so preview and export stay in sync.
     if not access_key:
         return deck
+    if include_title_image:
+        try:
+            deck["title_image"] = fetch_unsplash_photo(topic, access_key)
+        except Exception:
+            deck["title_image"] = None
     for slide in deck["slides"]:
         query = f"{topic} {slide['title']}"
         try:
@@ -311,7 +389,7 @@ def get_image_geometry(layout_mode: str, slide_index: int) -> dict[str, float | 
         return {"image_left": 0.7, "text_left": 6.7, "image_side": image_side}
     return {"image_left": 6.7, "text_left": 0.7, "image_side": image_side}
 
-def build_presentation(deck: dict[str, Any], unsplash_key: str | None, theme: dict[str, str], layout_mode: str) -> bytes:
+def build_presentation(deck: dict[str, Any], unsplash_key: str | None, theme: dict[str, str], layout_mode: str, presenter_name: str = "") -> bytes:
     # Export the final .pptx using the selected theme preset and image-placement mode.
     if Presentation is None:
         raise RuntimeError("python-pptx is not installed. Install dependencies from requirements.txt first.")
@@ -321,19 +399,42 @@ def build_presentation(deck: dict[str, Any], unsplash_key: str | None, theme: di
     primary = theme["primary"]
     secondary = theme["secondary"]
     accent = theme["accent"]
-    title_slide = prs.slides.add_slide(prs.slide_layouts[0])
+    title_slide = prs.slides.add_slide(prs.slide_layouts[6])
     apply_background(title_slide, primary)
-    title_box = title_slide.shapes.title
-    subtitle_box = title_slide.placeholders[1]
-    title_box.text = deck["title"]
-    subtitle_box.text = deck["subtitle"]
-    title_paragraph = title_box.text_frame.paragraphs[0]
-    title_paragraph.font.size = Pt(28)
+
+    accent_band = title_slide.shapes.add_shape(1, Inches(0.95), Inches(0.95), Inches(1.6), Inches(0.16))
+    accent_band.fill.solid()
+    accent_band.fill.fore_color.rgb = hex_to_rgb(accent)
+    accent_band.line.fill.background()
+
+    title_box = title_slide.shapes.add_textbox(Inches(1.0), Inches(1.45), Inches(11.2), Inches(1.8))
+    title_frame = title_box.text_frame
+    title_frame.word_wrap = True
+    title_frame.text = deck["title"]
+    title_paragraph = title_frame.paragraphs[0]
+    title_paragraph.font.size = Pt(30)
     title_paragraph.font.bold = True
     title_paragraph.font.color.rgb = hex_to_rgb("#FFFFFF")
-    subtitle_paragraph = subtitle_box.text_frame.paragraphs[0]
-    subtitle_paragraph.font.size = Pt(16)
+    title_paragraph.alignment = 1
+
+    subtitle_box = title_slide.shapes.add_textbox(Inches(1.25), Inches(3.45), Inches(10.8), Inches(1.0))
+    subtitle_frame = subtitle_box.text_frame
+    subtitle_frame.word_wrap = True
+    subtitle_frame.text = deck["subtitle"]
+    subtitle_paragraph = subtitle_frame.paragraphs[0]
+    subtitle_paragraph.font.size = Pt(17)
     subtitle_paragraph.font.color.rgb = hex_to_rgb("#F6F0E8")
+    subtitle_paragraph.alignment = 1
+
+    if presenter_name.strip():
+        presenter_box = title_slide.shapes.add_textbox(Inches(1.3), Inches(5.35), Inches(10.7), Inches(0.55))
+        presenter_frame = presenter_box.text_frame
+        presenter_frame.text = presenter_name.strip()
+        presenter_paragraph = presenter_frame.paragraphs[0]
+        presenter_paragraph.font.size = Pt(13)
+        presenter_paragraph.font.bold = True
+        presenter_paragraph.font.color.rgb = hex_to_rgb("#FFFFFF")
+        presenter_paragraph.alignment = 1
     for index, slide_data in enumerate(deck["slides"]):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         apply_background(slide, secondary)
@@ -415,6 +516,7 @@ with st.sidebar:
     image_layout_label = st.selectbox("Image placement", list(IMAGE_LAYOUT_OPTIONS.keys()), index=2)
     model = st.selectbox("Gemini model", [DEFAULT_MODEL, "gemini-2.0-flash", "gemini-1.5-flash"], index=0)
     use_unsplash = st.toggle("Include Unsplash images", value=bool(unsplash_key))
+    presenter_name = st.text_input("Optional presenter name", placeholder="e.g. Ayo Ajayi")
     project_brief_text = st.text_area(
         "Optional project description",
         placeholder="Add up to five bullets, for example:\n- Problem we solve\n- Target users\n- Key differentiator\n- Business impact\n- Desired takeaway",
@@ -473,7 +575,7 @@ st.markdown(
         .suggestion h4 {{ margin:0 0 0.35rem 0; font-size:1.05rem; }}
         .suggestion p {{ margin:0; color:var(--muted); line-height:1.45; }}
         .card {{ padding:1.25rem 1.3rem; margin-top:1rem; }}
-        .meta-grid {{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:0.8rem; margin-top:0.85rem; }}
+        .meta-grid {{ display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:0.8rem; margin-top:0.85rem; }}
         .meta-item {{ border-radius:18px; padding:0.9rem 1rem; background:rgba(255,255,255,0.7); border:1px solid rgba(24,26,31,0.08); }}
         .meta-label {{ color:var(--muted); font-size:0.86rem; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.25rem; }}
         .slide-card {{ background: rgba(255,255,255,0.78); border:1px solid rgba(24,26,31,0.08); border-radius:24px; padding:1rem 1.1rem; margin-bottom:1rem; }}
@@ -543,8 +645,19 @@ if generate:
             try:
                 raw_deck = call_gemini(prompt, api_key, model)
                 deck = normalize_deck(raw_deck, topic.strip(), slide_count, theme_name, project_brief)
-                deck = enrich_deck_with_unsplash(deck, topic.strip(), unsplash_key if use_unsplash else None)
-                pptx_bytes = build_presentation(deck, unsplash_key if use_unsplash else None, selected_theme, layout_mode)
+                deck = enrich_deck_with_unsplash(
+                    deck,
+                    topic.strip(),
+                    unsplash_key if use_unsplash else None,
+                    include_title_image=False,
+                )
+                pptx_bytes = build_presentation(
+                    deck,
+                    unsplash_key if use_unsplash else None,
+                    selected_theme,
+                    layout_mode,
+                    presenter_name=presenter_name,
+                )
                 pptx_path = save_presentation_file(pptx_bytes, topic.strip())
             except Exception as exc:
                 st.session_state.last_error = str(exc)
@@ -566,6 +679,7 @@ with left_col:
                 <div class="meta-item"><div class="meta-label">Theme</div><div><strong>{theme_name}</strong></div></div>
                 <div class="meta-item"><div class="meta-label">Image layout</div><div><strong>{image_layout_label}</strong></div></div>
                 <div class="meta-item"><div class="meta-label">Optional brief</div><div><strong>{len(project_brief)}/5 bullets</strong></div></div>
+                <div class="meta-item"><div class="meta-label">Presenter</div><div><strong>{presenter_name if presenter_name.strip() else "Not set"}</strong></div></div>
             </div>
         </div>
         """,
