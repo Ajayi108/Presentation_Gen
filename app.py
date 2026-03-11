@@ -562,9 +562,9 @@ st.markdown(
         .hero {{ padding: 3rem 2.4rem 2.7rem 2.4rem; position: relative; overflow: hidden; text-align: center; }}
         .hero::before {{ content: ""; position: absolute; left: -34px; top: -34px; width: 200px; height: 200px; border-radius: 999px; background: radial-gradient(circle, rgba(60, 191, 161, 0.14), transparent 68%); }}
         .hero::after {{ content: ""; position: absolute; right: -28px; top: -28px; width: 180px; height: 180px; border-radius: 999px; background: radial-gradient(circle, rgba(217, 123, 78, 0.20), transparent 68%); }}
-        .eyebrow {{ display:inline-block; padding:0.5rem 0.9rem; border-radius:999px; background:rgba(255,255,255,0.84); border:1px solid rgba(24,26,31,0.08); font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.12em; color:var(--primary); }}
-        .hero-title {{ font-size: clamp(3rem, 6vw, 5.8rem); line-height: 0.96; letter-spacing: -0.04em; margin: 1rem auto 0.85rem auto; max-width: 13ch; text-wrap: balance; }}
-        .hero-copy {{ color: var(--muted); max-width: 52rem; font-size: 1.1rem; line-height: 1.6; margin: 0 auto 1rem auto; text-wrap: pretty; }}
+        .eyebrow {{ display:inline-block; padding:0.5rem 0.9rem; border-radius:999px; background:rgba(255,255,255,0.84); border:1px solid rgba(24,26,31,0.08); font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.12em; color:var(--primary); margin:0 auto; text-align:center; }}
+        .hero-title {{ font-size: clamp(3.1rem, 6vw, 6rem); line-height: 0.94; letter-spacing: -0.05em; margin: 1rem auto 0.7rem auto; max-width: 11ch; text-wrap: balance; text-align:center; }}
+        .hero-copy {{ color: var(--muted); max-width: 52rem; font-size: 1.1rem; line-height: 1.6; margin: 0 auto 1rem auto; text-wrap: pretty; text-align:center; }}
         .pill-row {{ display:flex; flex-wrap:wrap; gap:0.65rem; margin-top:1rem; justify-content:center; }}
         .pill, .status-pill {{ display:inline-block; padding:0.62rem 0.92rem; border-radius:999px; font-weight:700; }}
         .pill {{ background: rgba(24,26,31,0.05); color: var(--ink); }}
@@ -599,10 +599,10 @@ image_status_text = "Unsplash ready" if unsplash_key else "Add UNSPLASH_ACCESS_K
 st.markdown(
     f"""
     <section class="hero">
-        <span class="eyebrow">DeckMuse Studio</span>
-        <h1 class="hero-title">Presentations that look expensive before the first edit.</h1>
+        <span class="eyebrow">Group X</span>
+        <h1 class="hero-title">  Bring your presentation ideas to life.</h1>
         <p class="hero-copy">
-            A modern AI presentation studio for teams that need client-ready decks with stronger visual polish, smarter structure, and a more premium first impression.
+            Design sharper, more persuasive decks with a modern visual system built for polished first impressions.
         </p>
         <div class="pill-row">
             <span class="pill">{theme_name}</span>
