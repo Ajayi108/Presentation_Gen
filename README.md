@@ -42,4 +42,4 @@ After you click `Generate presentation`, the app will:
 - The app defaults to the `gemini-2.5-flash` model.
 - Export requires `python-pptx` to be installed.
 - The API keys are never shown in the UI.
-- The code includes inline comments around the main generation, image, and export steps.
+- The code includes inline comments around the main generation, image, and export steps. 
