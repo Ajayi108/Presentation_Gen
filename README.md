@@ -2,6 +2,10 @@
 
 A Streamlit app that turns a single topic into a PowerPoint presentation using Gemini for slide content and Unsplash for slide images.
 
+## Preview
+
+![AI Presentation Generator app preview](assets/app-preview.png)
+
 ## What it does
 
 - Loads API keys from `.env`
